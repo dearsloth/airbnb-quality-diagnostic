@@ -1,0 +1,54 @@
+# Local / personal config
+config.local.json
+.env
+.env.*
+!.env.example
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Raw Inside Airbnb data — do not publish
+airbnb_Taiwan/
+data/
+*.csv.gz
+
+# DuckDB / logs / temp
+*.duckdb
+*.wal
+*.log
+output/_tmp_*
+
+# Generated outputs: ignore by default, then allow small snapshots
+output/*
+!output/.gitkeep
+!output/recommendations.md
+!output/lexicon_fix_execution_report.md
+!output/recommendations_table.csv
+!output/pandas_01_city_quality_summary.csv
+!output/pandas_02_district_quality_summary.csv
+!output/pandas_02_price_band_quality_summary.csv
+!output/pandas_02_stay_category_quality_summary.csv
+!output/pandas_02_underperforming_segments.csv
+!output/pandas_03_theme_frequency.csv
+!output/pandas_03_theme_by_underperforming_segment.csv
+!output/theme_frequency_before_after.csv
+!output/sql_01_city_quality_summary.csv
+!output/sql_02_segment_quality_compare.csv
+!output/sql_03_underperforming_segments.csv
+!output/sql_04_qa_join_reviews.csv

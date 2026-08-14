@@ -1,0 +1,57 @@
+{
+    "version": "1.0",
+    "notes": "規則輔助分類；命中=提及該主題，不區分正負面（第一版）",
+    "themes": {
+      "cleanliness": {
+        "label_zh": "清潔",
+        "patterns": [
+          "clean", "dirty", "dust", "stain", "mold", "smell",
+          "bathroom", "toilet", "sheets", "towel",
+          "乾淨", "整潔", "髒", "灰塵", "異味", "霉", "浴室", "床單"
+        ]
+      },
+      "noise": {
+        "label_zh": "噪音",
+        "patterns": [
+          "noise", "noisy", "loud", "thin wall", "soundproof",
+          "吵", "噪音", "隔音", "施工", "樓上"
+        ]
+      },
+      "communication": {
+        "label_zh": "溝通",
+        "patterns": [
+          "responsive", "reply", "communication", "check-in", "check in",
+          "unresponsive", "slow reply", "no reply", "poor communication",
+          "房東", "回覆", "聯繫", "入住", "溝通", "態度", "回覆慢", "聯繫不上"
+        ]
+      },
+      "cancellation": {
+        "label_zh": "取消／入住異常",
+        "patterns": [
+          "cancel", "cancellation", "refund", "could not enter", "locked out",
+          "取消", "退款", "進不去", "門鎖", "改訂"
+        ]
+      },
+      "location": {
+        "label_zh": "地點／交通",
+        "patterns": [
+          "location", "convenient", "mrt", "metro", "walk to", "far from",
+          "地點", "交通", "捷運", "方便", "偏遠", "夜市"
+        ]
+      },
+      "value": {
+        "label_zh": "性價比",
+        "patterns": [
+          "value", "expensive", "cheap", "worth", "overpriced",
+          "CP", "性價比", "貴", "划算", "物超所值"
+        ]
+      },
+      "amenities": {
+        "label_zh": "設備",
+        "patterns": [
+          "wifi", "wi-fi", "ac", "air conditioning", "hot water", "kitchen",
+          "網路", "WiFi", "冷氣", "空調", "熱水", "廚房", "電梯"
+        ]
+      }
+    }
+  }

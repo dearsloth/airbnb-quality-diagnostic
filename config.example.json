@@ -1,0 +1,21 @@
+{
+  "city_name": "Taipei",
+  "listings_csv": "airbnb_Taiwan/listings.csv",
+  "output_dir": "output",
+  "city_summary_filename": "pandas_01_city_quality_summary.csv",
+  "low_score_threshold": 4.5,
+
+  "min_rated_n": 30,
+  "flag_avg_rating_gap": 0.05,
+  "flag_low_score_rate_lift": 1.3,
+  
+  "price_band_edges": [0, 1500, 2500, 4000, 999999],
+  "price_band_labels": ["<=1500", "1501-2500", "2501-4000", ">4000"],
+
+  "reviews_csv": "airbnb_Taiwan/reviews.csv",
+  "theme_lexicon_path": "rules/theme_lexicon.json",
+  "min_comment_chars": 20,
+  "theme_sample_n": 30000,
+  "theme_sample_seed": 42,
+  "spacy_model": "en_core_web_sm"
+}

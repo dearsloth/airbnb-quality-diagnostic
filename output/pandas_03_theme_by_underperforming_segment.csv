@@ -1,0 +1,4 @@
+﻿segment_dim,segment_value,sample_n,noise_n,noise_share_pct,cleanliness_neg_n,cleanliness_neg_share_pct,city_noise_share_pct,city_cleanliness_neg_share_pct
+stay_category,飯店類,923,48,5.2,20,2.17,5.11,2.2
+district,南港區,112,0,0.0,1,0.89,5.11,2.2
+price_band,<=1500,4161,272,6.54,85,2.04,5.11,2.2

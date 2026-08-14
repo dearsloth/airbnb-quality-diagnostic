@@ -1,0 +1,2 @@
+﻿city,n_listings,review_coverage,ltm_active_rate,avg_rating,low_score_threshold,low_score_rate,superhost_rate,rating_nonnull_n,source_file,review_coverage_pct,ltm_active_rate_pct,low_score_rate_pct,superhost_rate_pct
+Taipei,6419,0.8094718803551955,0.6937217635145662,4.743,4.5,0.11181678214010778,0.4820065430752454,5196,airbnb_Taiwan/listings.csv,80.95,69.37,11.18,48.2
