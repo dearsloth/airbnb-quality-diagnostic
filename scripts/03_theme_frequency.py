@@ -11,9 +11,11 @@
   - 同一 listing_id + 相同 comments 去重，只留一則
   - 以 theme_sample_seed 可重現抽樣；theme_sample_n 為 null 則用全部有效評論，不抽樣
   - 一則評論同一主題最多計 1 次；一則可多標籤
+  - 偏低分群 × 主題交叉與主題頻次使用同一批有效評論（theme_sample_n = null 即全量）
 
 指標定義：
   主題占比 = 該主題出現則數 ÷ 有效評論數
+  清潔負向占比 = 命中負向清潔詞（髒、異味、dirty 等）的則數 ÷ 有效評論數
 """
 
 import os
@@ -215,6 +217,181 @@ def build_hits_table(sample_df, theme_sets, preview_chars=160): # preview_chars�
     return pd.DataFrame(rows)
 
 
+# 清潔負向詞：與全量清潔主題分開，避免把「乾淨」等正面提及當痛點
+# 須與作品頁交叉表說明一致
+CLEANLINESS_NEG_PATTERNS = (
+    "dirty", "dust", "stain", "mold", "smell",
+    "髒", "灰塵", "異味", "霉",
+)
+
+
+def flag_cleanliness_neg(texts):
+    flags = []
+    patterns = tuple(p.lower() for p in CLEANLINESS_NEG_PATTERNS)
+    for text in texts:
+        tl = (text or "").lower()
+        flags.append(any(p in tl for p in patterns))
+    return flags
+
+
+def noise_flags_from_theme_sets(theme_sets):
+    return ["noise" in hits for hits in theme_sets]
+
+
+def noise_flags_from_hits(eligible_df, hits_df):
+    theme_series = hits_df["themes"].fillna("").astype(str)
+    noise_ids = hits_df.loc[
+        theme_series.str.contains(r"(?:^|\|)noise(?:\||$)", regex=True),
+        "review_id",
+    ]
+    return eligible_df["id"].isin(set(noise_ids.tolist()))
+
+
+def clean_price_to_numeric(series):
+    text_series = series.astype(str)
+    only_number_text = text_series.str.replace(r"[^\d.]", "", regex=True)
+    return pd.to_numeric(only_number_text, errors="coerce")
+
+
+def map_stay_category(property_type, room_type):
+    p = (property_type or "").lower()
+    r = (room_type or "").lower()
+    if "shared room" in p or "shared room" in r:
+        return "合宿類"
+    if any(k in p for k in ["hotel", "hostel", "aparthotel", "boutique hotel", "serviced apartment", "resort", "ryokan", "kezhan", "motel", "inn"]):
+        return "飯店類"
+    if any(k in p for k in ["minsu", "bed and breakfast", "guesthouse", "kezhan", "ryokan"]):
+        return "民宿類"
+    return "住宅類"
+
+
+def attach_listing_segments(eligible_df, listings_df, cfg):
+    listings = listings_df.copy()
+    listings["price_num"] = clean_price_to_numeric(listings["price"])
+    edges = cfg["price_band_edges"]
+    labels = cfg["price_band_labels"]
+    listings["price_band"] = pd.cut(
+        listings["price_num"],
+        bins=edges,
+        labels=labels,
+        right=True,
+        include_lowest=True,
+    )
+    listings["price_band"] = listings["price_band"].astype("object").fillna("Unknown")
+    listings["stay_category"] = [
+        map_stay_category(p, r)
+        for p, r in zip(listings["property_type"].astype(str), listings["room_type"].astype(str))
+    ]
+    listings["neighbourhood_cleansed"] = listings["neighbourhood_cleansed"].astype(str)
+
+    keep = listings[["id", "neighbourhood_cleansed", "price_band", "stay_category"]]
+    out = eligible_df.merge(keep, left_on="listing_id", right_on="id", how="left")
+    out = out.drop(columns=["id_y"], errors="ignore")
+    if "id_x" in out.columns:
+        out = out.rename(columns={"id_x": "id"})
+    return out
+
+
+def build_underperforming_theme_crosstab(review_df, underperforming_df):
+    city_n = len(review_df)
+    if city_n == 0:
+        city_noise_pct = float("nan")
+        city_neg_pct = float("nan")
+    else:
+        city_noise_pct = round(float(review_df["has_noise"].mean()) * 100, 2)
+        city_neg_pct = round(float(review_df["has_cleanliness_neg"].mean()) * 100, 2)
+
+    dim_to_col = {
+        "district": "neighbourhood_cleansed",
+        "price_band": "price_band",
+        "stay_category": "stay_category",
+    }
+    flagged = underperforming_df[underperforming_df["is_underperforming"]].copy()
+    flagged = flagged[flagged["segment_value"].astype(str) != "Unknown"]
+
+    rows = []
+    for _, seg in flagged.iterrows():
+        col = dim_to_col.get(seg["segment_dim"])
+        if not col:
+            continue
+        sub = review_df[review_df[col].astype(str) == str(seg["segment_value"])]
+        n = len(sub)
+        noise_n = int(sub["has_noise"].sum()) if n else 0
+        neg_n = int(sub["has_cleanliness_neg"].sum()) if n else 0
+        rows.append({
+            "segment_dim": seg["segment_dim"],
+            "segment_value": seg["segment_value"],
+            "sample_n": n,
+            "noise_n": noise_n,
+            "noise_share_pct": round(noise_n / n * 100, 2) if n else float("nan"),
+            "cleanliness_neg_n": neg_n,
+            "cleanliness_neg_share_pct": round(neg_n / n * 100, 2) if n else float("nan"),
+            "city_noise_share_pct": city_noise_pct,
+            "city_cleanliness_neg_share_pct": city_neg_pct,
+        })
+    return pd.DataFrame(rows), city_noise_pct, city_neg_pct, city_n
+
+
+def write_underperforming_theme_crosstab(review_df, cfg, out_dir):
+    listings_path = resolve_path(cfg["listings_csv"])
+    seg_path = os.path.join(out_dir, "pandas_02_underperforming_segments.csv")
+    if not os.path.exists(listings_path):
+        print("找不到 listings.csv，略過偏低分群交叉表：", listings_path)
+        return None
+    if not os.path.exists(seg_path):
+        print("找不到偏低分群表，略過交叉表：", seg_path)
+        return None
+
+    listings = pd.read_csv(
+        listings_path,
+        usecols=["id", "neighbourhood_cleansed", "price", "property_type", "room_type"],
+        encoding="utf-8",
+    )
+    underperforming = pd.read_csv(seg_path, encoding="utf-8-sig")
+    tagged = attach_listing_segments(review_df, listings, cfg)
+    crosstab, city_noise_pct, city_neg_pct, city_n = build_underperforming_theme_crosstab(
+        tagged, underperforming
+    )
+    crosstab_out = os.path.join(out_dir, "pandas_03_theme_by_underperforming_segment.csv")
+    crosstab.to_csv(crosstab_out, index=False, encoding="utf-8-sig")
+    print("\n=== 偏低分群 × 主題交叉 ===")
+    print("有效評論數（與主題頻次同一批）：", city_n)
+    print("臺北市噪音占比：", city_noise_pct)
+    print("臺北市清潔負向占比：", city_neg_pct)
+    print(crosstab.to_string(index=False))
+    print("已儲存交叉表：", crosstab_out)
+    return crosstab_out
+
+
+def run_crosstab_from_existing_outputs():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+    if not os.path.exists(config_path):
+        print("找不到 config.local.json，請先從 config.example.json 複製修改")
+        sys.exit(1)
+
+    cfg = load_config()
+    reviews_path = resolve_path(cfg["reviews_csv"])
+    out_dir = resolve_path(cfg["output_dir"])
+    min_chars = int(cfg.get("min_comment_chars", 20))
+    sample_n = cfg.get("theme_sample_n", 30000)
+    sample_seed = int(cfg.get("theme_sample_seed", 42))
+    hits_path = os.path.join(out_dir, "pandas_03_theme_review_hits.csv")
+
+    if not os.path.exists(hits_path):
+        print("找不到主題命中表，請先跑完整主題抽取：", hits_path)
+        sys.exit(1)
+
+    reviews = read_reviews(reviews_path)
+    eligible = prepare_eligible_reviews(reviews, min_chars)
+    sample_df = sample_reviews(eligible, sample_n, sample_seed)
+    hits_df = pd.read_csv(hits_path, encoding="utf-8-sig")
+    sample_df = sample_df.copy()
+    sample_df["has_noise"] = noise_flags_from_hits(sample_df, hits_df)
+    sample_df["has_cleanliness_neg"] = flag_cleanliness_neg(sample_df["comments_clean"].tolist())
+    write_underperforming_theme_crosstab(sample_df, cfg, out_dir)
+
 
 def main():
     # Windows 主控台預設常是 cp950；強制 UTF-8，避免重導向 log 變成亂碼
@@ -290,6 +467,11 @@ def main():
     freq_df.to_csv(freq_out, index=False, encoding="utf-8-sig")
     hits_df.to_csv(hits_out, index=False, encoding="utf-8-sig")
 
+    sample_df = sample_df.copy()
+    sample_df["has_noise"] = noise_flags_from_theme_sets(theme_sets)
+    sample_df["has_cleanliness_neg"] = flag_cleanliness_neg(comment_texts)
+    write_underperforming_theme_crosstab(sample_df, cfg, out_dir)
+
     # 印出摘要
     hit_count = 0
     for s in theme_sets:
@@ -307,4 +489,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--crosstab-only":
+        run_crosstab_from_existing_outputs()
+    else:
+        main()

@@ -30,7 +30,7 @@ airbnb_analysis/           # ← 專案根目錄（跑 SQL／腳本都在這裡�
 │   ├── 01_city_quality_summary.py
 │   ├── 02_segment_quality_compare.py
 │   ├── 03_theme_frequency.py
-│   └── 04_run_sql.py      # 一鍵跑 SQL，並與 pandas CSV 對帳
+│   └── 04_run_sql.py      # 一鍵跑 SQL，並與 pandas CSV 交叉核對
 ├── powerbi/
 │   ├── Airbnb_Taipei_Quality.pbix   # 儀表板（Desktop 開啟／發佈用）
 │   ├── recommendations_table.csv    # 建議表（報表資料來源之一）
@@ -209,7 +209,7 @@ cd /path/to/airbnb_analysis   # 必須在這裡（直接開 DuckDB CLI 跑 .sql 
 python scripts/04_run_sql.py  # 腳本會自己 chdir 到根目錄，相對路徑才找得到
 ```
 
-會依序跑 `sql/00`～`04`（同一 DuckDB 連線），把查詢結果存 CSV，再與 pandas 產出對帳：
+會依序跑 `sql/00`～`04`（同一 DuckDB 連線），把查詢結果存 CSV，再與 pandas 產出交叉核對：
 
 | SQL | 輸出 |
 |-----|------|
@@ -218,7 +218,7 @@ python scripts/04_run_sql.py  # 腳本會自己 chdir 到根目錄，相對路�
 | `03_….sql` | `output/sql_03_underperforming_segments.csv` |
 | `04_….sql` | `output/sql_04_qa_join_reviews.csv` |
 
-`00_load.sql` 只建表／VIEW，不存 CSV。跑完後會自動對帳（須先跑過 `scripts/01`、`02`）：
+`00_load.sql` 只建表／VIEW，不存 CSV。跑完後會自動交叉核對（須先跑過 `scripts/01`、`02`）：
 
 - 全市：`n_listings`、`avg_rating`、`low_score_rate`、`rating_nonnull_n`
 - 偏低分群組別：`pandas_02_underperforming_segments.csv`（只留 `is_underperforming = True`）↔ `sql_03_…`
@@ -259,7 +259,7 @@ Python 腳本會依 `__file__` 自己找到專案根目錄；SQL 不會，所以
 | `low_score_rate` | 評分 `< low_score_threshold` 占比（分母＝有評分房源） |
 | `superhost_rate` | `host_is_superhost == t` 占比 |
 
-目前全市快照（`output/pandas_01_city_quality_summary.csv`，與 SQL 對帳通過）：
+目前全市快照（`output/pandas_01_city_quality_summary.csv`，與 SQL 交叉核對通過）：
 
 | 房源數 | 有評率 | 近一年活躍率 | 均分 | 低分率 | Superhost 率 | 有評分房源數 |
 |--------|--------|--------------|------|--------|--------------|------------|
@@ -309,6 +309,7 @@ reviews.csv
   → spaCy PhraseMatcher + 字串包含比對（中文補強）
   → 每則評論多標籤
   → pandas_03_theme_frequency.csv / pandas_03_theme_review_hits.csv
+  → pandas_03_theme_by_underperforming_segment.csv（同一批有效評論）
 ```
 
 ### 品質／抽樣規則
@@ -360,13 +361,13 @@ reviews.csv
 
 ### 偏低分群 × 主題交叉
 
-`output/pandas_03_theme_by_underperforming_segment.csv`（相對全市噪音 5.11%、清潔負向 2.20%；此交叉表以 30k 抽樣為準，與上方全量噪音 4.93% 不同）：
+`output/pandas_03_theme_by_underperforming_segment.csv`（與上方主題頻次同一批全量 202,548 則。臺北市基準：噪音 4.93%、清潔負向 2.44%。清潔僅計負向命中）：
 
 | 分群 | 有效評論數 | 噪音占比 | 清潔負向占比 | 解讀 |
 |------|-----------|----------|--------------|------|
-| 價格 ≤1500 | 4,161 | **6.54%** | 2.04% | 噪音偏高，清潔持平 → 可直接行動 |
-| 飯店類 | 923 | 5.20% | 2.17% | 兩者皆與全市持平 → 根因不在這兩主題 |
-| 南港區 | 112 | 0.00% | 0.89% | 有效評論數不足（僅 112 則），無法下主題結論 |
+| 價格 ≤1500 | 27,931 | **6.15%** | 2.66% | 噪音高於臺北市 4.93%；清潔負向略高，可順帶檢查，不以清潔為主 |
+| 飯店類 | 5,944 | **5.70%** | **3.10%** | 噪音高約 0.8 個百分點、清潔負向高約 0.7 個百分點 → 兩主題均可列 |
+| 南港區 | 916 | 3.17% | 2.40% | 噪音低於臺北市、清潔負向持平 → 主題無法解釋低分 |
 
 ---
 
@@ -376,11 +377,11 @@ reviews.csv
 
 | 順位 | 分群 × 主題 | 證據強度 | 建議先做的事 |
 |------|-------------|----------|--------------|
-| 1 | ≤1500 元 × 噪音 | 高（有效評論數 4,161，主題明顯偏高） | 房源揭露 + 隔音低成本輔導 |
-| 2 | 飯店類 × 全面性落差 | 高（分數最差），但主題證據不足 | 人工抽查根因 → 針對性流程改善 |
-| 3 | 南港區 × 待驗證 | 低（有效評論數不足，僅 112 則） | 人工複核 + 累積有效評論數後再分析 |
+| 1 | ≤1500 元 × 噪音 | 高（有效評論 27,931，噪音明顯偏高） | 房源揭露 + 隔音低成本輔導 |
+| 2 | 飯店類 × 噪音＋清潔負向 | 高（噪音 5.70%、清潔負向 3.10%，皆高於臺北市；低分率仍最高） | 噪音揭露 + 隔音；同步檢查清潔／異味；另抽查其他根因 |
+| 3 | 南港區 × 主題未對上 | 有效評論 916；噪音低於臺北市 | 人工複核低分評論，不套噪音／清潔方案 |
 
-三種偏低分群不能套同一套改善方案：有主題證據的先做、分數差但主題平淡的先抽查、有效評論數不足的先標註限制。
+三種偏低分群不能套同一套改善方案：≤1500 以噪音為主；飯店類可對噪音與清潔負向行動；南港區主題未對上，先抽查。
 
 ---
 
@@ -400,10 +401,10 @@ reviews.csv
 - [x] spaCy 評論主題抽取（`03_theme_frequency.py` + `rules/theme_lexicon.json`）  
 - [x] 全量主題頻次（`theme_sample_n: null`）  
 - [x] 偏低分群 × 主題交叉  
-- [x] DuckDB SQL（全市／分群／偏低分群 + JOIN 核對 + pandas 對帳）  
+- [x] DuckDB SQL（全市／分群／偏低分群 + JOIN 核對 + pandas 交叉核對）  
 - [x] 改善優先順序結論（`output/recommendations.md`）  
 - [x] Power BI 儀表板（`powerbi/Airbnb_Taipei_Quality.pbix`，作品頁公開內嵌）  
-- [ ] 作品頁填入實際數字與建議（目前仍為框架／待分析）  
+- [x] 作品頁填入實際數字與建議  
 
 ---
 

@@ -1,10 +1,12 @@
 # 字典修正後執行報告（v1 → v2）
 
+> 本報告記錄 **30k 抽樣**（`theme_sample_n: 30000`、seed=42）下的字典修正。正式主題占比與分群交叉以 `theme_sample_n: null` 全量結果為準，見 README 與 `output/pandas_03_theme_by_underperforming_segment.csv`。
+
 ## 變更
 - `rules/theme_lexicon.json`：communication 移除 `host`，新增窄片語（unresponsive、slow reply、no reply、poor communication、回覆慢、聯繫不上）
 - 固定 seed=42、sample_n=30000 重跑 `03_theme_frequency.py`
 
-## 前後對比
+## 前後對比（30k 抽樣）
 
 | 主題 | 修正前則數 | 修正後則數 | 修正前占比 | 修正後占比 | 變化 |
 |------|------------|------------|------------|------------|------|
@@ -18,18 +20,28 @@
 
 **重點**：communication 43.12% → 30.38%（-12.74pp），減少 3,823 則 host 假陽性。
 
-## 偏低分群 × 主題交叉
+## 當時 30k 交叉表（歷史快照，非正式結果）
 
-全市基準：噪音 5.11%，清潔負向 2.2%
+當時臺北市基準：噪音 5.11%，清潔負向 2.2%
 
-| 分群維度 | 分群 | 有效評論數 | 噪音占比 | 清潔負向占比 | vs 全市噪音 | vs 全市清潔負向 |
+| 分群維度 | 分群 | 有效評論數 | 噪音占比 | 清潔負向占比 | vs 臺北市噪音 | vs 臺北市清潔負向 |
 |----------|------|--------|----------|--------------|-------------|----------------|
 | stay_category | 飯店類 | 923 | 5.2% | 2.17% | +0.09pp | -0.03pp |
 | district | 南港區 | 112 | 0.0% | 0.89% | -5.11pp | -1.31pp |
 | price_band | <=1500 | 4161 | 6.54% | 2.04% | +1.43pp | -0.16pp |
 
+## 正式全量交叉（theme_sample_n: null）
+
+臺北市基準：噪音 4.93%，清潔負向 2.44%；分母 202,548 則有效評論。
+
+| 分群維度 | 分群 | 有效評論數 | 噪音占比 | 清潔負向占比 | vs 臺北市噪音 | vs 臺北市清潔負向 |
+|----------|------|--------|----------|--------------|-------------|----------------|
+| stay_category | 飯店類 | 5,944 | 5.70% | 3.10% | +0.77pp | +0.66pp |
+| district | 南港區 | 916 | 3.17% | 2.40% | -1.76pp | -0.04pp |
+| price_band | <=1500 | 27,931 | 6.15% | 2.66% | +1.22pp | +0.22pp |
+
 ## 輸出檔案
-- `output/pandas_03_theme_frequency.csv`（v2 現行檔）
-- `output/theme_frequency_v1_before.csv`（修正前快照）
-- `output/theme_frequency_before_after.csv`
-- `output/pandas_03_theme_by_underperforming_segment.csv`
+- `output/pandas_03_theme_frequency.csv`（全量現行檔）
+- `output/pandas_03_theme_by_underperforming_segment.csv`（全量現行交叉表）
+- `output/theme_frequency_v1_before.csv`（30k 修正前快照）
+- `output/theme_frequency_before_after.csv`（30k 前後對照）

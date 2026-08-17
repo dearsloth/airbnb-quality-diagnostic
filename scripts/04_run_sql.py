@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 一鍵跑 SQL：00 載入 → 01 全市 → 02 分群 → 03 偏低分群 → 04 JOIN 核對
-最後用 pandas 已產出的 CSV 對帳(把 pandas 及 SQL 分別算出來的數字擺在一起核對)。
+最後用 pandas 已產出的 CSV 交叉核對（把 pandas 及 SQL 分別算出來的數字擺在一起核對）。
 
 請在專案根目錄執行：
     python scripts/04_run_sql.py
@@ -28,7 +28,7 @@ out_dir = os.path.join(ROOT, "output")
 
 
 def check_one(name, pandas_value, sql_value, ok):
-    """印出一項對帳，並更新是否全部通過。"""
+    """印出一項交叉核對，並更新是否全部通過。"""
     same = pandas_value == sql_value
     mark = "OK" if same else "FAIL"
     print(" ", name, "pandas=", pandas_value, "SQL=", sql_value, mark)
@@ -37,12 +37,12 @@ def check_one(name, pandas_value, sql_value, ok):
     return ok
 
 
-def reconcile_with_pandas():
+def cross_check_with_pandas():
     """
-    把 SQL 剛存的 CSV，跟先前 pandas 腳本的 CSV 對一下。
+    把 SQL 剛存的 CSV，跟先前 pandas 腳本的 CSV 交叉核對。
     須先跑過 scripts/01、02（才會有 pandas_01_…、pandas_02_… 等檔）。
     """
-    print("\n=== 步驟 8：與 pandas CSV 對帳 ===")
+    print("\n=== 步驟 8：與 pandas CSV 交叉核對 ===")
 
     city_p_path = os.path.join(out_dir, "pandas_01_city_quality_summary.csv")
     city_s_path = os.path.join(out_dir, "sql_01_city_quality_summary.csv")
@@ -54,7 +54,7 @@ def reconcile_with_pandas():
         if not os.path.exists(p):
             missing.append(p)
     if missing:
-        print("找不到對帳檔，請先跑 pandas 腳本 01／02：")
+        print("找不到交叉核對所需檔案，請先跑 pandas 腳本 01／02：")
         for p in missing:
             print(" ", p)
         sys.exit(1)
@@ -126,9 +126,9 @@ def reconcile_with_pandas():
         ok = False
 
     if ok:
-        print("\n對帳通過：SQL 與 pandas 數字一致。")
+        print("\n交叉核對通過：SQL 與 pandas 數字一致。")
     else:
-        print("\n對帳失敗：請回頭查 00 清洗或 01／02／03 公式。")
+        print("\n交叉核對失敗：請回頭查 00 清洗或 01／02／03 公式。")
         sys.exit(1)
 
 
@@ -176,7 +176,7 @@ def main():
         print("Saved:", out_path)
 
     print("\nSQL 跑完。品質指標請看 output/sql_01、sql_02、sql_03 的 CSV；sql_04 只是 JOIN 核對。")
-    reconcile_with_pandas()
+    cross_check_with_pandas()
 
 
 if __name__ == "__main__":
